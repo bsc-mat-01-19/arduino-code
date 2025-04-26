@@ -14,6 +14,9 @@ const char* server = "api.thingspeak.com";
 const int port = 80;
 const char* apiKey = "5M1CR2RBEUGIVE1T";
 
+// Phone Number to send SMS to
+const char* phoneNumber = "+265883366358";
+
 #define UART_BAUD 115200
 #define MODEM_RST 4
 #define MODEM_PWR 23
@@ -25,12 +28,10 @@ const char* apiKey = "5M1CR2RBEUGIVE1T";
 #include <StreamDebugger.h>
 StreamDebugger debugger(SerialAT, Serial);
 TinyGsm modem(debugger);
-
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
 
 void setup() {
-  // Serial monitor
   Serial.begin(115200);
   delay(10);
 
@@ -79,10 +80,22 @@ void setup() {
   bool electricityPresent = random(0, 2);
   int value = electricityPresent ? 1 : 0;
 
-  Serial.print("Electricity: ");
-  Serial.println(value == 1 ? "Present" : "Absent");
+  // Define the pole number
+  String poleNumber = "24423";
 
-  String url = "/update?api_key=" + String(apiKey) + "&field1=" + String(value);
+  String statusMessage = (value == 1)
+    ? "fault has been fixed"
+    : "On pole number " + poleNumber + " there is fault";
+
+  Serial.println(statusMessage);
+
+  // Send SMS
+  sendSMS(phoneNumber, statusMessage);
+
+  // Build URL with both value and poleNumber
+  String url = "/update?api_key=" + String(apiKey) +
+               "&field1=" + String(value) +
+               "&field2=" + poleNumber;
 
   Serial.println("Sending to ThingSpeak...");
   Serial.println("URL: " + url);
@@ -105,6 +118,24 @@ void setup() {
   digitalWrite(LED_PIN, HIGH); // Done indicator
 }
 
+void sendSMS(const char* phoneNumber, String message) {
+  Serial.println("Sending SMS...");
+
+  modem.sendAT("+CMGF=1");
+  delay(1000);
+
+  modem.sendAT("+CMGS=\"" + String(phoneNumber) + "\"");
+  delay(1000);
+
+  modem.sendAT(message);
+  delay(1000);
+
+  modem.sendAT((char)26); // Ctrl+Z
+  delay(3000);
+
+  Serial.println("SMS Sent");
+}
+
 void loop() {
-  // Do nothing
+  // Nothing in loop
 }
